@@ -1,9 +1,11 @@
 package com.ruchij
 
 import cats.effect.{Async, Clock, ContextShift, ExitCode, IO, IOApp, Resource}
+import cats.implicits._
 import com.ruchij.config.ServiceConfiguration
 import com.ruchij.dao.doobie.DoobieTransactor
 import com.ruchij.dao.quote.DoobieQuoteDao
+import com.ruchij.migration.MigrationApp
 import com.ruchij.services.health.HealthServiceImpl
 import com.ruchij.services.quote.QuotationServiceImpl
 import com.ruchij.types.Random.randomUuid
@@ -34,12 +36,16 @@ object App extends IOApp {
     yield ExitCode.Success
 
   def program[F[+ _]: Async: ContextShift: Clock](serviceConfiguration: ServiceConfiguration): Resource[F, HttpApp[F]] =
-    DoobieTransactor.create(serviceConfiguration.doobieDatabaseConfiguration)
-      .map(_.trans)
-      .map { implicit transactor =>
-        val quotationService = new QuotationServiceImpl[F, ConnectionIO](DoobieQuoteDao)
-        val healthService = new HealthServiceImpl[F](serviceConfiguration.buildInformation)
+    Resource.eval(MigrationApp.migrate[F](serviceConfiguration.sqlDatabaseConfiguration))
+      .productR {
+        DoobieTransactor.create(serviceConfiguration.sqlDatabaseConfiguration)
+          .map(_.trans)
+          .map { implicit transactor =>
+            val quotationService = new QuotationServiceImpl[F, ConnectionIO](DoobieQuoteDao)
+            val healthService = new HealthServiceImpl[F](serviceConfiguration.buildInformation)
 
-        Routes(quotationService, healthService)
+            Routes(quotationService, healthService)
+          }
       }
+
 }

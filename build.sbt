@@ -25,6 +25,7 @@ lazy val migration =
     .enablePlugins(JavaAppPackaging)
     .settings(
       name := "quotes-migration",
+      libraryDependencies ++= Seq(catsEffect, pureconfig, h2, postgresql, flyway),
       topLevelDirectory := None
     )
 
@@ -37,7 +38,8 @@ lazy val api =
       buildInfoKeys := Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion),
       buildInfoPackage := "com.eed3si9n.ruchij",
       topLevelDirectory := None
-)
+    )
+    .dependsOn(migration)
 
 lazy val apiDependencies =
   Seq(

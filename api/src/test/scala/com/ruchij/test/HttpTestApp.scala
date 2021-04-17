@@ -12,6 +12,6 @@ object HttpTestApp {
 
   def apply[F[_]: Sync: Clock]: F[HttpApp[F]] =
     Applicative[F].pure {
-      Routes(new HealthServiceImpl[F](BuildInfo))
+      Routes(???, new HealthServiceImpl[F](BuildInfo))
     }
 }

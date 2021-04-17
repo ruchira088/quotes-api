@@ -2,6 +2,7 @@ package com.ruchij.web.routes
 
 import cats.effect.Sync
 import cats.implicits._
+import com.ruchij.circe.Decoders._
 import com.ruchij.circe.Encoders._
 import com.ruchij.services.quote.QuotationService
 import com.ruchij.types.FunctionKTypes

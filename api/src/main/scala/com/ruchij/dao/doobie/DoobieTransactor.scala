@@ -1,14 +1,14 @@
 package com.ruchij.dao.doobie
 
 import cats.effect.{Async, Blocker, ContextShift, Resource}
-import com.ruchij.config.DoobieDatabaseConfiguration
+import com.ruchij.migration.config.DatabaseConfiguration
 import com.ruchij.types.FunctionKTypes
 import doobie.hikari.HikariTransactor
 import doobie.util.ExecutionContexts
 
 object DoobieTransactor {
 
-  def create[F[_] : Async : ContextShift](doobieDatabaseConfiguration: DoobieDatabaseConfiguration): Resource[F, HikariTransactor[F]] =
+  def create[F[_] : Async : ContextShift](doobieDatabaseConfiguration: DatabaseConfiguration): Resource[F, HikariTransactor[F]] =
     for {
       databaseDriver <-
         Resource.eval(FunctionKTypes.eitherToF[Throwable, F].apply(DatabaseDriver.infer(doobieDatabaseConfiguration.url)))

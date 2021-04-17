@@ -36,6 +36,8 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
+  lazy val flyway = "org.flywaydb" % "flyway-core" % "7.8.1"
+
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.1"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.14.1"
