@@ -8,38 +8,59 @@ import scala.sys.process.ProcessBuilder
 val ReleaseBranch = "dev"
 val ProductionBranch = "main"
 
-lazy val root =
-  (project in file("."))
+inThisBuild {
+  Seq(
+    organization := "com.ruchij",
+    scalaVersion := Dependencies.ScalaVersion,
+    maintainer := "me@ruchij.com",
+    scalacOptions ++= Seq("-Xlint", "-feature", "-Wconf:cat=lint-byname-implicit:s"),
+    addCompilerPlugin(kindProjector),
+    addCompilerPlugin(betterMonadicFor),
+    addCompilerPlugin(scalaTypedHoles)
+  )
+}
+
+lazy val migration =
+  (project in file("./migration"))
+    .enablePlugins(JavaAppPackaging)
+    .settings(
+      name := "quotes-migration",
+      topLevelDirectory := None
+    )
+
+lazy val api =
+  (project in file("./api"))
     .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
     .settings(
       name := "quotes-api",
-      organization := "com.ruchij",
-      scalaVersion := Dependencies.ScalaVersion,
-      maintainer := "me@ruchij.com",
-      libraryDependencies ++= rootDependencies ++ rootTestDependencies.map(_ % Test),
+      libraryDependencies ++= apiDependencies ++ apiTestDependencies.map(_ % Test),
       buildInfoKeys := Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion),
       buildInfoPackage := "com.eed3si9n.ruchij",
-      topLevelDirectory := None,
-      scalacOptions ++= Seq("-Xlint", "-feature", "-Wconf:cat=lint-byname-implicit:s"),
-      addCompilerPlugin(kindProjector),
-      addCompilerPlugin(betterMonadicFor),
-      addCompilerPlugin(scalaTypedHoles)
+      topLevelDirectory := None
 )
 
-lazy val rootDependencies =
+lazy val apiDependencies =
   Seq(
     http4sDsl,
     http4sBlazeServer,
     http4sCirce,
+    http4sBlazeClient,
     circeGeneric,
     circeParser,
     circeLiteral,
+    doobieCore,
+    doobieHikari,
+    h2,
+    postgresql,
+    fs2Core,
+    enumeratum,
+    jsoup,
     jodaTime,
     pureconfig,
     logbackClassic
   )
 
-lazy val rootTestDependencies =
+lazy val apiTestDependencies =
   Seq(scalaTest, pegdown)
 
 addCommandAlias("testWithCoverage", "; coverage; test; coverageReport")
