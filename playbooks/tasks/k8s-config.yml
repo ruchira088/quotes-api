@@ -1,0 +1,9 @@
+- name: Create output directory
+  file:
+    path: k8s-output
+    state: directory
+
+- name: Create K8s config file
+  copy:
+    dest: k8s-output/kubeconfig
+    content: "{{ lookup('aws_ssm', '/k8s/config/home', region='ap-southeast-2') }}"

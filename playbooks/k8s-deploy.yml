@@ -1,0 +1,41 @@
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Gather git information
+      import_tasks: tasks/git-info.yml
+
+    - set_fact:
+        namespace: "{{ 'quotes-api' if git_branch == 'master' else 'quotes-api-' + git_branch }}"
+
+    - name: Render K8s resource files
+      import_tasks: tasks/k8s-resource-files.yml
+      vars:
+        domain: quotes-api.home.ruchij.com
+        hostname: "{{ domain if git_branch == 'master' else git_branch + '.' + domain }}"
+
+    - name: Set kube_config
+      import_tasks: tasks/k8s-config.yml
+
+    - name: Deploy K8s resources
+      block:
+        - name: Create Namespace
+          command: kubectl apply -f k8s-output/Namespace.yaml --kubeconfig k8s-output/kubeconfig
+
+        - name: Create ConfigMap
+          command: kubectl apply -f k8s-output/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
+
+        - name: Create Secrets
+          command: kubectl apply -f k8s-output/Secrets.yaml --kubeconfig k8s-output/kubeconfig
+
+        - name: Deploy application
+          command: kubectl apply -f k8s-output --kubeconfig k8s-output/kubeconfig
+
+        - name: Wait for successful deployment
+          command: kubectl rollout status deployment quotes-api-deployment --kubeconfig k8s-output/kubeconfig -n {{ namespace }}
+
+    - name: Clean up output directory
+      file:
+        path: k8s-output
+        state: absent

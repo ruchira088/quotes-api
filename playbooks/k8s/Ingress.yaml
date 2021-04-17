@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: quotes-api-ingress
+  namespace: {{ namespace }}
+spec:
+  tls:
+    - secretName: quotes-api-tls
+      hosts:
+        - {{ hostname }}
+  rules:
+    - host: {{ hostname }}
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            backend:
+              service:
+                name: quotes-api-service
+                port:
+                  name: http4s-port

@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: quotes-api-certificate
+  namespace: {{ namespace }}
+spec:
+  secretName: quotes-api-tls
+  issuerRef:
+    kind: ClusterIssuer
+    name: lets-encrypt
+  dnsNames:
+    - {{ hostname }}
