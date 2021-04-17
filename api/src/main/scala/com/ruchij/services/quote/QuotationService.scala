@@ -1,13 +1,14 @@
 package com.ruchij.services.quote
 
-import com.ruchij.dao.quote.models.Quote
+import com.ruchij.dao.quote.models.{Paging, Quote}
+
+import java.util.UUID
 
 trait QuotationService[F[_]] {
+  def insert(author: String, text: String): F[Quote]
 
-  def searchByAuthor(author: String, pageSize: Int, offset: Int): F[Seq[Quote]]
+  def findById(id: UUID): F[Quote]
 
-  def searchByText(text: String, pageSize: Int, offset: Int): F[Seq[Quote]]
-
-  def retrieveAll(pageSize: Int, offset: Int): F[Seq[Quote]]
+  def find(maybeAuthor: Option[String], maybeText: Option[String], paging: Paging): F[Seq[Quote]]
 
 }

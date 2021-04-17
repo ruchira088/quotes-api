@@ -1,14 +1,18 @@
 package com.ruchij.dao.quote
 
 import com.ruchij.dao.doobie.DoobieMappings._
-import com.ruchij.dao.quote.models.{Quote, SortBy}
+import com.ruchij.dao.quote.models.{Paging, Quote, SortBy}
 import doobie.ConnectionIO
 import doobie.implicits.toSqlInterpolator
+import doobie.util.fragment.Fragment
+import doobie.util.fragments.whereAndOpt
 
 import java.util.UUID
 
 object DoobieQuoteDao extends QuoteDao[ConnectionIO] {
   override type InsertionResult = Int
+
+  val SelectQuery = fr"SELECT id, created_at, author, text FROM quote"
 
   override def insert(quote: Quote): ConnectionIO[Int] =
     sql"""
@@ -18,37 +22,28 @@ object DoobieQuoteDao extends QuoteDao[ConnectionIO] {
       .update
       .run
 
-  override def retrieveAll(sortBy: SortBy, size: Int, offset: Int): ConnectionIO[Seq[Quote]] =
-    sql"SELECT id, created_at, author, text FROM quote ORDER BY ${sortBy} LIMIT $size OFFSET $offset"
-      .query[Quote]
-      .to[Seq]
-
   override def findById(id: UUID): ConnectionIO[Option[Quote]] =
-    sql"SELECT id, created_at, author, text FROM quote WHERE id = $id"
+    (SelectQuery ++ fr"WHERE id = $id")
       .query[Quote]
       .option
 
-  override def searchByAuthor(author: String, size: Int, offset: Int): ConnectionIO[Seq[Quote]] =
-    sql"""
-      SELECT id, created_at, author, text FROM quote
-        WHERE author LIKE ${"%" + author + "%"} LIMIT $size OFFSET $offset
-    """
+  override def find(maybeAuthor: Option[String], maybeText: Option[String], paging: Paging): ConnectionIO[Seq[Quote]] =
+    (SelectQuery ++
+        whereAndOpt(
+          maybeAuthor.map(author => fr"author LIKE ${"%" + author + "%"}"),
+          maybeText.map(text => fr"text LIKE ${"%" + text + "%"}")
+        ) ++
+      sortingAndOrdering(paging)
+      )
       .query[Quote]
       .to[Seq]
 
-  override def searchByText(text: String, size: Int, offset: Int): ConnectionIO[Seq[Quote]] =
-    sql"""
-      SELECT id, created_at, author, text FROM quote
-        WHERE text LIKE ${"%" + text + "%"} LIMIT $size OFFSET $offset
-    """
-      .query[Quote]
-      .to[Seq]
+  private def sortingAndOrdering(paging: Paging): Fragment =
+    fr"ORDER BY ${sortByColumn(paging.sortBy)} ${paging.sortOrder.shortName} LIMIT ${paging.pageSize} OFFSET ${paging.pageNumber * paging.pageSize}"
 
-  val sortByColumn: SortBy => String = {
-    case SortBy.Author => "author"
-
-    case SortBy.Text => "text"
-
+  private val sortByColumn: SortBy => String = {
     case SortBy.CreationDate => "created_at"
+
+    case value => value.entryName.toLowerCase
   }
 }
