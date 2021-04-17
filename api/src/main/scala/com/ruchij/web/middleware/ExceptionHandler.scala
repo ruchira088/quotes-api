@@ -1,6 +1,5 @@
 package com.ruchij.web.middleware
 
-import cats.Show
 import cats.arrow.FunctionK
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.Sync
@@ -8,11 +7,11 @@ import cats.implicits._
 import com.ruchij.exceptions.ResourceNotFoundException
 import com.ruchij.types.FunctionKTypes
 import com.ruchij.web.responses.ErrorResponse
-import io.circe.{CursorOp, DecodingFailure}
 import io.circe.generic.auto._
+import io.circe.{CursorOp, DecodingFailure}
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.dsl.impl.EntityResponseGenerator
-import org.http4s.{HttpApp, InvalidMessageBodyFailure, Request, Response, Status}
+import org.http4s.{HttpApp, Request, Response, Status}
 
 object ExceptionHandler {
   def apply[F[_]: Sync](httpApp: HttpApp[F]): HttpApp[F] =
