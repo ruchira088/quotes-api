@@ -20,7 +20,6 @@ import org.joda.time.DateTime
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.DurationInt
-import scala.language.postfixOps
 
 class DataFeederImpl[F[+ _]: Concurrent: Random[*[_], UUID]: Timer, G[_]: Applicative](
   lockService: LockService[F],
