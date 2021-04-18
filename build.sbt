@@ -59,7 +59,8 @@ lazy val apiDependencies =
     jsoup,
     jodaTime,
     pureconfig,
-    logbackClassic
+    logbackClassic,
+    scalaLogging
   )
 
 lazy val apiTestDependencies =

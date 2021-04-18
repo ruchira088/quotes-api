@@ -1,6 +1,6 @@
 package com.ruchij.services.feeder
 
-import cats.effect.{Clock, Concurrent, Sync}
+import cats.effect.{Clock, Concurrent}
 import cats.implicits._
 import cats.{Applicative, ~>}
 import com.ruchij.dao.lock.models.LockType
@@ -10,7 +10,9 @@ import com.ruchij.services.explorer.QuotationExplorer
 import com.ruchij.services.feeder.models.FeederResult
 import com.ruchij.services.feeder.models.FeederResult.{DataFeedResults, ExistingDataFeed}
 import com.ruchij.services.lock.LockService
-import com.ruchij.types.Random
+import com.ruchij.syntax.toLoggerF
+import com.ruchij.types.{LoggerF, Random}
+import com.typesafe.scalalogging.Logger
 import fs2.Stream
 import org.joda.time.DateTime
 
@@ -24,6 +26,8 @@ class DataFeederImpl[F[+ _]: Concurrent: Random[*[_], UUID]: Clock, G[_]: Applic
 )(implicit transaction: G ~> F)
     extends DataFeeder[F] {
 
+  private val logger: LoggerF = Logger[DataFeederImpl[F, G]]
+
   override val run: Stream[F, FeederResult] =
     Stream.eval(lockService.acquireLock(LockType.CrawlQuotes))
       .flatMap {
@@ -35,14 +39,14 @@ class DataFeederImpl[F[+ _]: Concurrent: Random[*[_], UUID]: Clock, G[_]: Applic
             .foldLeft[Stream[F, Quote]](Stream.empty) {
               case (stream, explorer) => stream.merge(discover(explorer))
             }
-            .chunkN(25)
+            .chunkN(100)
             .evalMap { chunks =>
               transaction(chunks.toList.traverse(quoteDao.insert)).as(chunks.size)
             }
             .onFinalize(lockService.releaseLock(lock.id).productR(Applicative[F].unit))
             .scan(0) { _ + _ }
             .tail
-            .evalMap { count => Sync[F].delay(println(s"Saved: $count quotes")).as(DataFeedResults(count)) }
+            .evalMap { count => logger.infoF(s"Saved: $count quotes").as(DataFeedResults(count)) }
       }
 
   def discover(quotationExplorer: QuotationExplorer[F]): Stream[F, Quote] =

@@ -1,6 +1,6 @@
 package com.ruchij.services.explorer
 
-import cats.effect.Sync
+import cats.effect.Concurrent
 import com.ruchij.services.explorer.models.DiscoveredQuote
 import fs2.Stream
 import org.http4s.client.Client
@@ -10,6 +10,6 @@ trait QuotationExplorer[F[_]] {
 }
 
 object QuotationExplorer {
-  def all[F[_]: Sync](client: Client[F]): List[QuotationExplorer[F]] =
+  def all[F[_]: Concurrent](client: Client[F]): List[QuotationExplorer[F]] =
     List(new GoodReadsQuotationExplorer[F](client))
 }

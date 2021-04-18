@@ -44,6 +44,8 @@ object Dependencies
 
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
+  lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.3"
+
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.11.3" cross CrossVersion.full
 
   lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.8" cross CrossVersion.full
