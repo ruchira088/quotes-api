@@ -16,7 +16,8 @@ object Routes {
     val routes: HttpRoutes[F] =
       Router(
         "/service" -> HealthRoutes(healthService),
-        "/quote" -> QuoteRoutes(quotationService)
+        "/quote" -> QuoteRoutes(quotationService),
+        "/data-feeder" -> ???
       )
 
     ExceptionHandler {
