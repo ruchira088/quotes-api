@@ -1,7 +1,7 @@
 CREATE TABLE quote (
     id VARCHAR(36) NOT NULL,
     created_at TIMESTAMP NOT NULL,
-    hash VARCHAR(16) UNIQUE NOT NULL,
+    hash VARCHAR(17) UNIQUE NOT NULL,
     author VARCHAR(256) NOT NULL,
     text TEXT NOT NULL,
 

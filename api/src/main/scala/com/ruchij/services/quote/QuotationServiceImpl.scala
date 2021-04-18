@@ -29,13 +29,10 @@ class QuotationServiceImpl[F[+ _]: Random[*[_], UUID]: Clock: MonadError[*[_], T
 
       quote = Quote(id, timestamp, s"$authorHash-$textHash", author, text)
 
-      maybePersisted <- transaction {
-        quoteDao.insert(quote).flatMap[Option[Quote]] {
-          case 1 => Applicative[G].pure(Some(quote))
-
-          case _ => quoteDao.findByHash(quote.hash)
+      maybePersisted <-
+        ApplicativeError[F, Throwable].handleErrorWith[Option[Quote]](transaction(quoteDao.insert(quote).as(Some(quote)))) {
+          _ => transaction(quoteDao.findByHash(quote.hash))
         }
-      }
 
       persisted <-
         maybePersisted.fold[F[Quote]](

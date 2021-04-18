@@ -1,8 +1,8 @@
 package com.ruchij.services.feeder
 
-import cats.effect.{Clock, Concurrent}
+import cats.effect.{Clock, Concurrent, Timer}
 import cats.implicits._
-import cats.{Applicative, ~>}
+import cats.{Applicative, ApplicativeError, ~>}
 import com.ruchij.dao.lock.models.LockType
 import com.ruchij.dao.quote.QuoteDao
 import com.ruchij.dao.quote.models.Quote
@@ -19,8 +19,10 @@ import org.joda.time.DateTime
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 
-class DataFeederImpl[F[+ _]: Concurrent: Random[*[_], UUID]: Clock, G[_]: Applicative](
+class DataFeederImpl[F[+ _]: Concurrent: Random[*[_], UUID]: Timer, G[_]: Applicative](
   lockService: LockService[F],
   hashingService: HashingService[F],
   explorers: List[QuotationExplorer[F]],
@@ -41,12 +43,17 @@ class DataFeederImpl[F[+ _]: Concurrent: Random[*[_], UUID]: Clock, G[_]: Applic
             .foldLeft[Stream[F, Quote]](Stream.empty) {
               case (stream, explorer) => stream.merge(discover(explorer))
             }
-            .chunkN(100)
+            .chunkN(10)
             .evalMap { chunks =>
-              transaction(chunks.toList.traverse(quoteDao.insert)).map(_.sum)
+              ApplicativeError[F, Throwable].handleError {
+                transaction(chunks.toList.traverse(quoteDao.insert)).map(_.sum)
+              } { _ => 0 }
             }
             .onFinalize(lockService.releaseLock(lock.id).productR(Applicative[F].unit))
-            .scan(0) { _ + _ }
+            .groupWithin(20, 5 seconds)
+            .scan(0) {
+              case (count, chunk) => chunk.sumAll + count
+            }
             .tail
             .evalMap { count => logger.infoF(s"Saved: $count quotes").as(DataFeedResults(count)) }
       }
