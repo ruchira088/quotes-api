@@ -1,17 +1,22 @@
 package com.ruchij
 
-import cats.effect.{Async, Clock, ContextShift, ExitCode, IO, IOApp, Resource}
+import cats.effect.{ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Timer}
 import cats.implicits._
 import com.ruchij.config.ServiceConfiguration
 import com.ruchij.dao.doobie.DoobieTransactor
+import com.ruchij.dao.lock.DoobieLockDao
 import com.ruchij.dao.quote.DoobieQuoteDao
 import com.ruchij.migration.MigrationApp
+import com.ruchij.services.explorer.QuotationExplorer
+import com.ruchij.services.feeder.DataFeederImpl
 import com.ruchij.services.health.HealthServiceImpl
+import com.ruchij.services.lock.LockServiceImpl
 import com.ruchij.services.quote.QuotationServiceImpl
 import com.ruchij.types.Random.randomUuid
 import com.ruchij.web.Routes
 import doobie.ConnectionIO
 import org.http4s.HttpApp
+import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.server.blaze.BlazeServerBuilder
 import pureconfig.ConfigSource
 
@@ -35,16 +40,21 @@ object App extends IOApp {
     }
     yield ExitCode.Success
 
-  def program[F[+ _]: Async: ContextShift: Clock](serviceConfiguration: ServiceConfiguration): Resource[F, HttpApp[F]] =
+  def program[F[+ _]: ConcurrentEffect: ContextShift: Timer](serviceConfiguration: ServiceConfiguration): Resource[F, HttpApp[F]] =
     Resource.eval(MigrationApp.migrate[F](serviceConfiguration.sqlDatabaseConfiguration))
       .productR {
         DoobieTransactor.create(serviceConfiguration.sqlDatabaseConfiguration)
           .map(_.trans)
-          .map { implicit transactor =>
-            val quotationService = new QuotationServiceImpl[F, ConnectionIO](DoobieQuoteDao)
-            val healthService = new HealthServiceImpl[F](serviceConfiguration.buildInformation)
+          .flatMap { implicit transactor =>
+            for {
+              client <- BlazeClientBuilder.apply[F](ExecutionContext.global).resource
 
-            Routes(quotationService, healthService)
+              quotationService = new QuotationServiceImpl[F, ConnectionIO](DoobieQuoteDao)
+              healthService = new HealthServiceImpl[F](serviceConfiguration.buildInformation)
+              lockService = new LockServiceImpl[F, ConnectionIO](DoobieLockDao)
+              dataFeeder = new DataFeederImpl[F, ConnectionIO](lockService, QuotationExplorer.all(client), DoobieQuoteDao)
+            }
+            yield Routes(quotationService, dataFeeder, healthService)
           }
       }
 

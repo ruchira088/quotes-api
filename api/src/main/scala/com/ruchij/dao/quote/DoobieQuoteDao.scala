@@ -1,7 +1,7 @@
 package com.ruchij.dao.quote
 
 import com.ruchij.dao.doobie.DoobieMappings._
-import com.ruchij.dao.quote.models.{Paging, Quote, SortBy}
+import com.ruchij.dao.quote.models.{Paging, Quote, SortBy, SortOrder}
 import doobie.ConnectionIO
 import doobie.implicits.toSqlInterpolator
 import doobie.util.fragment.Fragment
@@ -39,11 +39,19 @@ object DoobieQuoteDao extends QuoteDao[ConnectionIO] {
       .to[Seq]
 
   private def sortingAndOrdering(paging: Paging): Fragment =
-    fr"ORDER BY ${sortByColumn(paging.sortBy)} ${paging.sortOrder.shortName} LIMIT ${paging.pageSize} OFFSET ${paging.pageNumber * paging.pageSize}"
+    fr"""
+      ORDER BY ${sortByColumn(paging.sortBy)} ${sortOrder(paging.sortOrder)}
+        LIMIT ${paging.pageSize} OFFSET ${paging.pageNumber * paging.pageSize}
+    """
 
-  private val sortByColumn: SortBy => String = {
-    case SortBy.CreationDate => "created_at"
+  private val sortByColumn: SortBy => Fragment = {
+    case SortBy.CreationDate => fr"created_at"
+    case SortBy.Author => fr"author"
+    case SortBy.Text => fr"text"
+  }
 
-    case value => value.entryName.toLowerCase
+  private val sortOrder: SortOrder => Fragment = {
+    case SortOrder.Ascending => fr"ASC"
+    case SortOrder.Descending => fr"DESC"
   }
 }

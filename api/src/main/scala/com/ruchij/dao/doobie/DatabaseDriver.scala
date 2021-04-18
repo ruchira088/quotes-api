@@ -16,7 +16,7 @@ object DatabaseDriver extends Enum[DatabaseDriver[_]] {
 
   case object H2 extends DatabaseDriver[h2.Driver]
 
-  case object Postgres extends DatabaseDriver[postgresql.Driver]
+  case object Postgresql extends DatabaseDriver[postgresql.Driver]
 
   val infer: String => Either[IllegalArgumentException, DatabaseDriver[_]] = {
     case DbShortName(name) =>

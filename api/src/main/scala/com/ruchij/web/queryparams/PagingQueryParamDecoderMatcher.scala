@@ -30,7 +30,7 @@ object PagingQueryParamDecoderMatcher {
       .toValidNel(ParseFailure("Unable to parse as sort-by value", s"${queryParameterValue.value} is not a valid sort-by value"))
 
   implicit val sortOrderQueryParamDecoder: QueryParamDecoder[SortOrder] =
-    (queryParameterValue: QueryParameterValue) => SortOrder.values.find(_.shortName.equalsIgnoreCase(queryParameterValue.value))
+    (queryParameterValue: QueryParameterValue) => SortOrder.values.find(_.entryName.equalsIgnoreCase(queryParameterValue.value))
       .toValidNel(ParseFailure("Unable to parse as order value", s"${queryParameterValue.value} is not a valid order value"))
 
   def retrieve[A: QueryParamDecoder](queryParam: QueryParam[A], default: => A): Kleisli[Either[NonEmptyList[ParseFailure], *], QueryParameterMap, A] =

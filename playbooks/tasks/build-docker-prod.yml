@@ -8,7 +8,7 @@
     state: directory
 
 - name: Clean and build sbt project
-  shell: cd ../ && sbt clean universal:packageZipTarball
+  shell: cd ../ && sbt clean api/universal:packageZipTarball
 
 - name: Gather git information
   import_tasks: git-info.yml
@@ -27,7 +27,7 @@
       -t quotes-api:latest \
       -t quotes-api:{{ git_branch }}-{{ git_commit }} \
       -t quotes-api:{{ git_branch }}-{{ ansible_date_time.iso8601_basic_short }} \
-      ../target/universal/
+      ../api/target/universal/
 
 - name: Clean up output directory
   file:
