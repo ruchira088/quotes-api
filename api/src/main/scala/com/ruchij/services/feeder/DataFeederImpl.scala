@@ -9,6 +9,7 @@ import com.ruchij.dao.quote.models.Quote
 import com.ruchij.services.explorer.QuotationExplorer
 import com.ruchij.services.feeder.models.FeederResult
 import com.ruchij.services.feeder.models.FeederResult.{DataFeedResults, ExistingDataFeed}
+import com.ruchij.services.hash.HashingService
 import com.ruchij.services.lock.LockService
 import com.ruchij.syntax.toLoggerF
 import com.ruchij.types.{LoggerF, Random}
@@ -21,6 +22,7 @@ import java.util.concurrent.TimeUnit
 
 class DataFeederImpl[F[+ _]: Concurrent: Random[*[_], UUID]: Clock, G[_]: Applicative](
   lockService: LockService[F],
+  hashingService: HashingService[F],
   explorers: List[QuotationExplorer[F]],
   quoteDao: QuoteDao[G]
 )(implicit transaction: G ~> F)
@@ -41,7 +43,7 @@ class DataFeederImpl[F[+ _]: Concurrent: Random[*[_], UUID]: Clock, G[_]: Applic
             }
             .chunkN(100)
             .evalMap { chunks =>
-              transaction(chunks.toList.traverse(quoteDao.insert)).as(chunks.size)
+              transaction(chunks.toList.traverse(quoteDao.insert)).map(_.sum)
             }
             .onFinalize(lockService.releaseLock(lock.id).productR(Applicative[F].unit))
             .scan(0) { _ + _ }
@@ -55,7 +57,11 @@ class DataFeederImpl[F[+ _]: Concurrent: Random[*[_], UUID]: Clock, G[_]: Applic
         for {
           id <- Random[F, UUID].generate
           timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS).map(milliseconds => new DateTime(milliseconds))
-        } yield Quote(id, timestamp, discoveredQuote.author, discoveredQuote.text)
+
+          authorHash <- hashingService.hash(discoveredQuote.author.getBytes)
+          textHash <- hashingService.hash(discoveredQuote.text.getBytes)
+
+        } yield Quote(id, timestamp, s"$authorHash-$textHash", discoveredQuote.author, discoveredQuote.text)
       }
 
 }

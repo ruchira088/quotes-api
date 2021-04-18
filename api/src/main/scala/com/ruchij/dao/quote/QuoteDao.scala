@@ -5,11 +5,11 @@ import com.ruchij.dao.quote.models.{Paging, Quote}
 import java.util.UUID
 
 trait QuoteDao[F[_]] {
-  type InsertionResult
-
-  def insert(quote: Quote): F[InsertionResult]
+  def insert(quote: Quote): F[Int]
 
   def findById(id: UUID): F[Option[Quote]]
+
+  def findByHash(hash: String): F[Option[Quote]]
 
   def find(maybeAuthor: Option[String], maybeText: Option[String], paging: Paging): F[Seq[Quote]]
 }

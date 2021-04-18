@@ -1,5 +1,7 @@
 package com.ruchij.dao.quote
 
+import cats.ApplicativeError
+import cats.implicits._
 import com.ruchij.dao.doobie.DoobieMappings._
 import com.ruchij.dao.quote.models.{Paging, Quote, SortBy, SortOrder}
 import doobie.ConnectionIO
@@ -7,23 +9,32 @@ import doobie.implicits.toSqlInterpolator
 import doobie.util.fragment.Fragment
 import doobie.util.fragments.whereAndOpt
 
+import java.sql.SQLIntegrityConstraintViolationException
 import java.util.UUID
 
 object DoobieQuoteDao extends QuoteDao[ConnectionIO] {
-  override type InsertionResult = Int
 
-  val SelectQuery = fr"SELECT id, created_at, author, text FROM quote"
+  val SelectQuery = fr"SELECT id, created_at, hash, author, text FROM quote"
 
   override def insert(quote: Quote): ConnectionIO[Int] =
-    sql"""
-      INSERT INTO quote (id, created_at, author, text)
-        VALUES (${quote.id}, ${quote.createdAt}, ${quote.author}, ${quote.text})
+    ApplicativeError[ConnectionIO, Throwable].recover {
+      sql"""
+      INSERT INTO quote (id, created_at, hash, author, text)
+        VALUES (${quote.id}, ${quote.createdAt}, ${quote.hash}, ${quote.author}, ${quote.text})
     """
-      .update
-      .run
+        .update
+        .run
+    } {
+      case _: SQLIntegrityConstraintViolationException => 0
+    }
 
   override def findById(id: UUID): ConnectionIO[Option[Quote]] =
     (SelectQuery ++ fr"WHERE id = $id")
+      .query[Quote]
+      .option
+
+  override def findByHash(hash: String): ConnectionIO[Option[Quote]] =
+    (SelectQuery ++ fr"WHERE hash = $hash")
       .query[Quote]
       .option
 

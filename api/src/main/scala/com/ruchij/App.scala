@@ -1,6 +1,6 @@
 package com.ruchij
 
-import cats.effect.{ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Timer}
+import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.config.ServiceConfiguration
 import com.ruchij.dao.doobie.DoobieTransactor
@@ -9,6 +9,7 @@ import com.ruchij.dao.quote.DoobieQuoteDao
 import com.ruchij.migration.MigrationApp
 import com.ruchij.services.explorer.QuotationExplorer
 import com.ruchij.services.feeder.DataFeederImpl
+import com.ruchij.services.hash.Murmur3HashService
 import com.ruchij.services.health.HealthServiceImpl
 import com.ruchij.services.lock.LockServiceImpl
 import com.ruchij.services.quote.QuotationServiceImpl
@@ -20,6 +21,7 @@ import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.server.blaze.BlazeServerBuilder
 import pureconfig.ConfigSource
 
+import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 object App extends IOApp {
@@ -49,10 +51,17 @@ object App extends IOApp {
             for {
               client <- BlazeClientBuilder.apply[F](ExecutionContext.global).resource
 
-              quotationService = new QuotationServiceImpl[F, ConnectionIO](DoobieQuoteDao)
+              cpuCount <- Resource.eval(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
+              cpuBlockingEC <-
+                Resource.eval(Sync[F].delay(ExecutionContext.fromExecutor(Executors.newFixedThreadPool(cpuCount))))
+
+              cpuBlocker = Blocker.liftExecutionContext(cpuBlockingEC)
+
+              hashingService = new Murmur3HashService[F](cpuBlocker)
+              quotationService = new QuotationServiceImpl[F, ConnectionIO](hashingService, DoobieQuoteDao)
               healthService = new HealthServiceImpl[F](serviceConfiguration.buildInformation)
               lockService = new LockServiceImpl[F, ConnectionIO](DoobieLockDao)
-              dataFeeder = new DataFeederImpl[F, ConnectionIO](lockService, QuotationExplorer.all(client), DoobieQuoteDao)
+              dataFeeder = new DataFeederImpl[F, ConnectionIO](lockService, hashingService, QuotationExplorer.all(client), DoobieQuoteDao)
             }
             yield Routes(quotationService, dataFeeder, healthService)
           }
