@@ -1,5 +1,7 @@
 package com.ruchij.dao.quote
 
+import cats.Applicative
+import cats.implicits._
 import com.ruchij.dao.doobie.DoobieMappings._
 import com.ruchij.dao.quote.models.{Paging, Quote, SortBy, SortOrder}
 import doobie.ConnectionIO
@@ -13,13 +15,19 @@ object DoobieQuoteDao extends QuoteDao[ConnectionIO] {
 
   val SelectQuery = fr"SELECT id, created_at, hash, author, text FROM quote"
 
-  override def insert(quote: Quote): ConnectionIO[Int] =
-    sql"""
-      INSERT INTO quote (id, created_at, hash, author, text)
-        VALUES (${quote.id}, ${quote.createdAt}, ${quote.hash}, ${quote.author}, ${quote.text})
-    """
-      .update
-      .run
+  override def insert(quote: Quote): ConnectionIO[Either[Quote, Quote]] =
+    findByHash(quote.hash).flatMap {
+      case Some(existing) => Applicative[ConnectionIO].pure(Left(existing))
+
+      case None =>
+        sql"""
+          INSERT INTO quote (id, created_at, hash, author, text)
+            VALUES (${quote.id}, ${quote.createdAt}, ${quote.hash}, ${quote.author}, ${quote.text})
+        """
+          .update
+          .run
+          .as(Right(quote))
+    }
 
   override def findById(id: UUID): ConnectionIO[Option[Quote]] =
     (SelectQuery ++ fr"WHERE id = $id")

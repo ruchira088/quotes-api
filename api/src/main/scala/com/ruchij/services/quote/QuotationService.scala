@@ -5,7 +5,7 @@ import com.ruchij.dao.quote.models.{Paging, Quote}
 import java.util.UUID
 
 trait QuotationService[F[_]] {
-  def insert(author: String, text: String): F[Quote]
+  def insert(author: String, text: String): F[Either[Quote, Quote]]
 
   def findById(id: UUID): F[Quote]
 

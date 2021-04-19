@@ -23,9 +23,9 @@ object QuoteRoutes {
         for {
           CreateQuotationRequest(author, text) <- request.as[CreateQuotationRequest]
 
-          quote <- quotationService.insert(author, text)
+          quoteEither <- quotationService.insert(author, text)
 
-          response <- Created(quote)
+          response <- quoteEither.fold(existingQuote => Ok(existingQuote), createdQuote => Created(createdQuote))
         }
         yield response
 

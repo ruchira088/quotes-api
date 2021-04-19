@@ -19,7 +19,7 @@ class QuotationServiceImpl[F[+ _]: Random[*[_], UUID]: Clock: MonadError[*[_], T
 )(implicit transaction: G ~> F)
     extends QuotationService[F] {
 
-  override def insert(author: String, text: String): F[Quote] =
+  override def insert(author: String, text: String): F[Either[Quote, Quote]] =
     for {
       id <- Random[F, UUID].generate
       timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS).map(timestamp => new DateTime(timestamp))
@@ -29,17 +29,9 @@ class QuotationServiceImpl[F[+ _]: Random[*[_], UUID]: Clock: MonadError[*[_], T
 
       quote = Quote(id, timestamp, s"$authorHash-$textHash", author, text)
 
-      maybePersisted <-
-        ApplicativeError[F, Throwable].handleErrorWith[Option[Quote]](transaction(quoteDao.insert(quote).as(Some(quote)))) {
-          _ => transaction(quoteDao.findByHash(quote.hash))
-        }
+      persistedQuote <- transaction(quoteDao.insert(quote))
 
-      persisted <-
-        maybePersisted.fold[F[Quote]](
-          ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"Quote not found with hash ${quote.hash}"))
-        )(quote => Applicative[F].pure(quote))
-
-    } yield persisted
+    } yield persistedQuote
 
   override def findById(id: UUID): F[Quote] =
     transaction(quoteDao.findById(id))

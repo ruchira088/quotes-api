@@ -2,7 +2,7 @@ package com.ruchij.services.feeder
 
 import cats.effect.{Clock, Concurrent, Timer}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, ~>}
+import cats.{Applicative, ~>}
 import com.ruchij.dao.lock.models.LockType
 import com.ruchij.dao.quote.QuoteDao
 import com.ruchij.dao.quote.models.Quote
@@ -44,9 +44,12 @@ class DataFeederImpl[F[+ _]: Concurrent: Random[*[_], UUID]: Timer, G[_]: Applic
             }
             .chunkN(10)
             .evalMap { chunks =>
-              ApplicativeError[F, Throwable].handleError {
-                transaction(chunks.toList.traverse(quoteDao.insert)).map(_.sum)
-              } { _ => 0 }
+                transaction {
+                  chunks.toList.traverse { quote =>
+                    quoteDao.insert(quote).map(_.fold(_ => 0, _ => 1))
+                  }
+                }
+                  .map(_.sum)
             }
             .onFinalize(lockService.releaseLock(lock.id).productR(Applicative[F].unit))
             .groupWithin(20, 5 seconds)
