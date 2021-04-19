@@ -4,7 +4,7 @@ import cats.effect.{Clock, IO}
 import com.eed3si9n.ruchij.BuildInfo
 import com.ruchij.circe.Encoders.dateTimeEncoder
 import com.ruchij.test.HttpTestApp
-import com.ruchij.test.utils.Providers.stubClock
+import com.ruchij.test.utils.Providers._
 import com.ruchij.test.utils.IOUtils.runIO
 import com.ruchij.test.matchers._
 import io.circe.literal._
@@ -16,6 +16,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.util.Properties
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class HealthRoutesSpec extends AnyFlatSpec with Matchers {
   "GET /service/info" should "return a successful response containing service information" in runIO {
@@ -36,19 +37,20 @@ class HealthRoutesSpec extends AnyFlatSpec with Matchers {
         "timestamp": $dateTime
       }"""
 
-    for {
-      httpApplication <- HttpTestApp[IO]
+    HttpTestApp.create[IO].use {
+      case (_, httpApplication) =>
+        val request = Request[IO](GET, uri"/service/info")
 
-      request = Request[IO](GET, uri"/service/info")
+        for {
+          response <- httpApplication.run(request)
 
-      response <- httpApplication.run(request)
-
-      _ = {
-        response must beJsonContentType
-        response must haveJson(expectedJsonResponse)
-        response must haveStatus(Status.Ok)
-      }
+          _ = {
+            response must beJsonContentType
+            response must haveJson(expectedJsonResponse)
+            response must haveStatus(Status.Ok)
+          }
+        }
+        yield (): Unit
     }
-    yield (): Unit
   }
 }
